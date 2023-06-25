@@ -19,6 +19,8 @@ app.use(
   )
 );
 
+app.use(express.static("dist"));
+
 const persons = [
   {
     id: 1,
