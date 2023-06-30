@@ -2,11 +2,9 @@ const mongoose = require("mongoose");
 
 require("dotenv").config();
 
-const url = `mongodb+srv://yanso1:${process.argv[2]}@phonebook-test.byft3p1.mongodb.net/?retryWrites=true&w=majority`;
-
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(url);
+    const conn = await mongoose.connect(process.env.DB_STRING);
     console.log(`Mongo started on ${conn.connection.host}`);
   } catch (err) {
     console.error("ERROR:", err);
@@ -14,9 +12,6 @@ const connectDB = async () => {
 };
 
 connectDB();
-
-const terminalName = process.argv[3];
-const terminalNumber = process.argv[4];
 
 // mongoose model erstellen
 

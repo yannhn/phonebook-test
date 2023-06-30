@@ -1,9 +1,11 @@
 const express = require("express");
-const { v4: uuidv4 } = require("uuid");
+require("dotenv").config();
 const morgan = require("morgan");
 const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3001;
+const Person = require("./models/person");
+const connectDB = require("./config/connectDB");
 
 app.use(express.json());
 app.use(morgan("tiny"));
@@ -21,81 +23,68 @@ app.use(
 
 app.use(express.static("dist"));
 
-const persons = [
-  {
-    id: 1,
-    name: "Arto Hellas",
-    number: "040-123456",
-  },
-  {
-    id: 2,
-    name: "Ada Lovelace",
-    number: "39-44-5323523",
-  },
-  {
-    id: 3,
-    name: "Dan Abramov",
-    number: "12-43-234345",
-  },
-  {
-    id: 4,
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-  },
-  {
-    id: 5,
-    name: "Test Name",
-    number: "39-23-6423122",
-  },
-];
+connectDB();
 
 app.get("/api/persons", (req, res) => {
-  res.json(persons);
+  Person.find({}).then((persons) => {
+    res.json(persons);
+    console.log("PERSONS FROM GET:", persons);
+  });
 });
 
-app.get("/info", (req, res) => {
+app.get("/api/info", (req, res) => {
   const today = new Date();
-  res.send(`<p>Phonebook has info for ${persons.length} people</p>
-  <p>${today}</p>
-  `);
+  Person.find({}).then((persons) => {
+    res.send(`<p>Phonebook has info for ${persons.length} people</p>
+    <p>${today}</p>
+    `);
+  });
 });
 
 app.get("/api/persons/:id", (req, res) => {
   const id = Number(req.params.id);
-  const person = persons.find((person) => person.id === id);
-
-  if (person) {
-    res.json(person);
-  } else {
-    // res.send(`<h1>person with id ${id} was not found</h1>`);
-    res.status(404).send({ error: "Did not work!" });
-  }
+  Person.findById(id).then((person) => {
+    if (person) {
+      res.json(person);
+    } else {
+      res.status(404).send({ error: "Did not work!" });
+    }
+  });
 });
 
 app.delete("/api/persons/:id", (req, res) => {
   const id = Number(req.params.id);
-  const person = persons.filter((person) => person.id !== id);
+  Person.findByIdAndRemove(id)
+    .then(() => {
+      res.status(204).end();
+    })
+    .catch((error) => next(error));
+});
 
-  res.status(204).end();
+app.put("/api/persons/:id", (req, res, next) => {
+  const body = req.body;
+
+  const person = {
+    name: body.name,
+    number: body.name,
+  };
+
+  Person.findByIdAndUpdate(req.params.id, person, { new: true })
+    .then((updatedPerson) => {
+      res.json(updatedPerson);
+    })
+    .catch((error) => next(error));
 });
 
 app.post("/api/persons", (req, res) => {
   const body = req.body;
-  console.log("body:", body);
 
-  const person = {
-    id: uuidv4(),
+  const person = new Person({
     name: body.name,
     number: body.number,
-  };
+  });
 
-  const find = persons.some((item) => item.name === person.name);
-
-  if (find) {
-    return res.status(400).json({
-      error: "name already exists in the phonebook",
-    });
-  } else if (!body.name) {
+  if (!body.name) {
     return res.status(400).json({
       error: "name is missing",
     });
@@ -105,9 +94,10 @@ app.post("/api/persons", (req, res) => {
     });
   }
 
-  persons.push(person);
-
-  res.json(person);
+  person.save().then((result) => {
+    console.log(`added ${result.name} number ${result.number} to phonebook`);
+    res.json(result);
+  });
 });
 
 app.listen(PORT, () => {
