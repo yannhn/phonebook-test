@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 require("dotenv").config();
 
 const personSchema = new mongoose.Schema({
-  name: { type: String },
+  name: { type: String, minLength: 3 },
   number: { type: String },
 });
 

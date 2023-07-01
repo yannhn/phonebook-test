@@ -25,6 +25,24 @@ app.use(express.static("dist"));
 
 connectDB();
 
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({
+    error: "unknown endpoint",
+  });
+};
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+
+  if (error.name === "CastError" && error.kind === "ObjectId") {
+    return response.status(400).send({ error: "malformatted id" });
+  } else if (error.name === "ValidationError") {
+    return response.status(400).json({ error: error.message });
+  }
+
+  next(error);
+};
+
 app.get("/api/persons", (req, res) => {
   Person.find({}).then((persons) => {
     res.json(persons);
@@ -32,7 +50,7 @@ app.get("/api/persons", (req, res) => {
   });
 });
 
-app.get("/api/info", (req, res) => {
+app.get("/info", (req, res) => {
   const today = new Date();
   Person.find({}).then((persons) => {
     res.send(`<p>Phonebook has info for ${persons.length} people</p>
@@ -41,18 +59,20 @@ app.get("/api/info", (req, res) => {
   });
 });
 
-app.get("/api/persons/:id", (req, res) => {
+app.get("/api/persons/:id", (req, res, next) => {
   const id = Number(req.params.id);
-  Person.findById(id).then((person) => {
-    if (person) {
-      res.json(person);
-    } else {
-      res.status(404).send({ error: "Did not work!" });
-    }
-  });
+  Person.findById(id)
+    .then((person) => {
+      if (person) {
+        res.json(person);
+      } else {
+        res.status(404).send({ error: "Did not work!" });
+      }
+    })
+    .catch((error) => next(error));
 });
 
-app.delete("/api/persons/:id", (req, res) => {
+app.delete("/api/persons/:id", (req, res, next) => {
   const id = Number(req.params.id);
   Person.findByIdAndRemove(id)
     .then(() => {
@@ -66,7 +86,7 @@ app.put("/api/persons/:id", (req, res, next) => {
 
   const person = {
     name: body.name,
-    number: body.name,
+    number: body.number,
   };
 
   Person.findByIdAndUpdate(req.params.id, person, { new: true })
@@ -94,11 +114,19 @@ app.post("/api/persons", (req, res) => {
     });
   }
 
-  person.save().then((result) => {
-    console.log(`added ${result.name} number ${result.number} to phonebook`);
-    res.json(result);
-  });
+  person
+    .save()
+    .then((result) => {
+      console.log(`added ${result.name} number ${result.number} to phonebook`);
+      res.json(result);
+    })
+    .catch((err) => {
+      console.log(err.res.data.error);
+    });
 });
+
+app.use(unknownEndpoint);
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Server is listening on ${PORT}`);
